@@ -9,15 +9,15 @@
  */
 module.exports = {
   siteMetadata: {
-    title: `Gatsby Starter Blog`,
+    title: `UDN Blog`,
     author: {
       name: `Static CMS`,
       summary: `. A Git-based CMS for Static Site Generators`,
     },
     description: `A Git-based CMS for Static Site Generators`,
-    siteUrl: `https://gatsby.staticcms.org/`,
+    siteUrl: `https://udn.edu.vn`,
     social: {
-      twitter: `StaticJsCMS`,
+      twitter: `notfound`,
     },
   },
   plugins: [
