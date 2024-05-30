@@ -1,6 +1,6 @@
 ---
 title: How to Edit the host.json File for Azure Functions and Deploy Changes
-date: 2024-05-30T12:49:29+07:00
+date: 2024-04-03T12:49:29+07:00
 description: How to Edit the host.json File for Azure Functions and Deploy Changes
 ---
 Editing the `host.json` file for an Azure Function doesn't necessarily require you to go to the Azure portal. You can edit this file locally in your development environment and then deploy the changes to Azure. Here’s how you can do it:
