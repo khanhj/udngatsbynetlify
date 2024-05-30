@@ -1,51 +1,433 @@
 ---
-title: How to Edit the host.json File for Azure Functions and Deploy Changes
+title: Configuring Logging for Isolated Azure Functions
 date: 2024-04-03T12:49:29+07:00
-description: How to Edit the host.json File for Azure Functions and Deploy Changes
+description: Configuring Logging for Isolated Azure Functions
 ---
-Editing the `host.json` file for an Azure Function doesn't necessarily require you to go to the Azure portal. You can edit this file locally in your development environment and then deploy the changes to Azure. Here’s how you can do it:
+
+
+
+
+Logging is a critical aspect of monitoring and troubleshooting your Azure Functions. In isolated Azure Functions, logging can be configured using the `appsettings.json` file and the logging services provided by the .NET SDK. This article will guide you through setting up logging for isolated Azure Functions.
 
 
 
 
 
-### 1. **Edit `host.json` Locally**
+## Step 1: Create or Update `appsettings.json`
 
 
 
 
 
-The `host.json` file is typically found in the root directory of your Azure Functions project. You can open this file in your preferred code editor and make the necessary changes.
+First, ensure that your Azure Functions project has an `appsettings.json` file. This file is used to configure various settings, including logging levels.
 
 
 
 
 
-#### Example `host.json` Configuration:
+### Example `appsettings.json`:
+
+
+
+
 
 ```json
 
 {
 
-  "version": "2.0",
+  "Logging": {
 
-  "logging": {
+    "LogLevel": {
 
-    "logLevel": {
+      "Default": "Information",
 
-      "default": "Trace",
+      "Function": "Information",
 
-      "Function": "Trace"
+      "Microsoft": "Warning"
 
-    },
+    }
 
-    "applicationInsights": {
+  },
 
-      "samplingSettings": {
+  "ApplicationInsights": {
 
-        "isEnabled": false
+    "ConnectionString": "InstrumentationKey=your-instrumentation-key;IngestionEndpoint=https://<region>.in.applicationinsights.azure.com/"
 
-      }
+  }
+
+}
+
+```
+
+
+
+
+
+In this example:
+
+- The `LogLevel` section defines the minimum log level for different categories. You can adjust these as needed:
+
+  - `Default` applies to all categories.
+
+  - `Function` applies to the Azure Functions logs.
+
+  - `Microsoft` applies to logs from Microsoft libraries.
+
+
+
+
+
+- The `ApplicationInsights` section configures Application Insights for telemetry. Replace `your-instrumentation-key` and `<region>` with your actual Application Insights instrumentation key and region.
+
+
+
+
+
+## Step 2: Modify `Program.cs`
+
+
+
+
+
+Next, configure logging in your `Program.cs` file. This is where you set up the host builder and configure services.
+
+
+
+
+
+### Example `Program.cs`:
+
+
+
+
+
+```csharp
+
+using Microsoft.Extensions.Configuration;
+
+using Microsoft.Extensions.Hosting;
+
+using Microsoft.Extensions.Logging;
+
+using Microsoft.ApplicationInsights.Extensibility;
+
+using Microsoft.ApplicationInsights.WorkerService;
+
+
+
+
+
+public class Program
+
+{
+
+    public static void Main(string[] args)
+
+    {
+
+        var host = new HostBuilder()
+
+            .ConfigureAppConfiguration((hostingContext, config) =>
+
+            {
+
+                config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+
+                      .AddEnvironmentVariables();
+
+            })
+
+            .ConfigureFunctionsWorkerDefaults()
+
+            .ConfigureLogging((context, logging) =>
+
+            {
+
+                var configuration = context.Configuration.GetSection("Logging");
+
+                logging.ClearProviders();
+
+                logging.AddConsole();
+
+                logging.AddApplicationInsights();
+
+
+
+
+
+                // Apply logging configuration from appsettings.json
+
+                logging.AddConfiguration(configuration);
+
+            })
+
+            .ConfigureServices((context, services) =>
+
+            {
+
+                services.AddApplicationInsightsTelemetryWorkerService(
+
+                    options => options.ConnectionString = context.Configuration["ApplicationInsights:ConnectionString"]);
+
+            })
+
+            .Build();
+
+
+
+
+
+        host.Run();
+
+    }
+
+}
+
+```
+
+
+
+
+
+### Explanation:
+
+
+
+
+
+- **ConfigureAppConfiguration**: Adds the `appsettings.json` and environment variables to the configuration.
+
+- **ConfigureFunctionsWorkerDefaults**: Configures default settings for Azure Functions.
+
+- **ConfigureLogging**: Sets up logging providers and configurations:
+
+  - Clears existing providers.
+
+  - Adds console logging.
+
+  - Adds Application Insights logging.
+
+  - Applies logging configuration from `appsettings.json`.
+
+- **ConfigureServices**: Adds Application Insights telemetry services using the connection string from `appsettings.json`.
+
+
+
+
+
+## Step 3: Deploy and Monitor
+
+
+
+
+
+Once you have configured your logging, deploy your Azure Functions to Azure. You can monitor your logs in the Azure portal under **Monitor** > **Logs** and in your Application Insights resource.
+
+
+
+
+
+## No ConnectionString
+
+
+
+
+
+If you prefer not to specify the `ConnectionString` in your configuration files, you can rely on environment variables or Azure-managed service identities to automatically configure Application Insights.
+
+
+
+
+
+### Using Environment Variables:
+
+
+
+
+
+1. **Set the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable in your Azure Function App settings.**
+
+
+
+
+
+#### In Azure Portal:
+
+
+
+
+
+- Navigate to your Azure Function App.
+
+- Go to **Configuration** under the **Settings** section.
+
+- Click on **New application setting**.
+
+- Add the key `APPLICATIONINSIGHTS_CONNECTION_STRING` and set its value to your Application Insights connection string.
+
+
+
+
+
+### Example `Program.cs` Without ConnectionString:
+
+
+
+
+
+In this scenario, you don't need to set the connection string in your `appsettings.json` or `Program.cs`. The SDK will automatically pick up the environment variable.
+
+
+
+
+
+```csharp
+
+using Microsoft.Extensions.Configuration;
+
+using Microsoft.Extensions.Hosting;
+
+using Microsoft.Extensions.Logging;
+
+using Microsoft.ApplicationInsights.Extensibility;
+
+using Microsoft.ApplicationInsights.WorkerService;
+
+
+
+
+
+public class Program
+
+{
+
+    public static void Main(string[] args)
+
+    {
+
+        var host = new HostBuilder()
+
+            .ConfigureAppConfiguration((hostingContext, config) =>
+
+            {
+
+                config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+
+                      .AddEnvironmentVariables();
+
+            })
+
+            .ConfigureFunctionsWorkerDefaults()
+
+            .ConfigureLogging((context, logging) =>
+
+            {
+
+                var configuration = context.Configuration.GetSection("Logging");
+
+                logging.ClearProviders();
+
+                logging.AddConsole();
+
+                logging.AddApplicationInsights();
+
+
+
+
+
+                // Apply logging configuration from appsettings.json
+
+                logging.AddConfiguration(configuration);
+
+            })
+
+            .ConfigureServices((context, services) =>
+
+            {
+
+                // No need to explicitly set the connection string here
+
+                services.AddApplicationInsightsTelemetryWorkerService();
+
+            })
+
+            .Build();
+
+
+
+
+
+        host.Run();
+
+    }
+
+}
+
+```
+
+
+
+
+
+### Explanation:
+
+
+
+
+
+- The `ApplicationInsightsTelemetryWorkerService` will automatically use the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable if it is set in the Azure Function App settings.
+
+
+
+
+
+## Additional Tips:
+
+
+
+
+
+- **Local Development**: Ensure you have the correct settings in `local.settings.json` for local development. You can set the `APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable in your development environment as well.
+
+- **Environment Variables**: Use environment variables for sensitive information like the Application Insights connection string.
+
+- **Log Levels**: Adjust log levels in `appsettings.json` to control the verbosity of logs.
+
+
+
+
+
+### Example `local.settings.json` for Local Development:
+
+
+
+
+
+```json
+
+{
+
+  "IsEncrypted": false,
+
+  "Values": {
+
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "your-connection-string"
+
+  },
+
+  "Logging": {
+
+    "LogLevel": {
+
+      "Default": "Debug",
+
+      "Function": "Debug",
+
+      "Microsoft": "Information"
 
     }
 
@@ -55,114 +437,14 @@ The `host.json` file is typically found in the root directory of your Azure Func
 
 ```
 
-In this example:
 
 
 
 
+## Conclusion
 
-- The `logLevel` setting is configured to capture `Trace` level logs for detailed logging.
 
-- `samplingSettings` is set to `false` to ensure that all telemetry data is sent to Application Insights without sampling.
 
 
 
-
-
-### 2. **Deploy Changes to Azure**
-
-
-
-
-
-After editing the `host.json` file locally, you need to deploy your changes to Azure. The deployment process can vary depending on your workflow, but common methods include:
-
-
-
-
-
-#### Using Azure Functions Core Tools:
-
-1. **Build and Deploy**:
-
-    ```sh
-
-    func azure functionapp publish <your-function-app-name>
-
-    ```
-
-
-
-
-
-#### Using Visual Studio:
-
-1. **Right-click your project** in Solution Explorer.
-
-2. Select **Publish**.
-
-3. Follow the prompts to deploy your project to Azure.
-
-
-
-
-
-#### Using GitHub Actions or Azure Pipelines:
-
-If you have CI/CD pipelines set up, commit your changes and push them to your repository. Your pipeline will handle the deployment.
-
-
-
-
-
-### 3. **Verify Changes in Azure Portal**
-
-
-
-
-
-After deploying, you can verify that your changes have been applied by checking the Application Insights logs in the Azure portal.
-
-
-
-
-
-#### Steps to Verify:
-
-1. **Go to your Azure Function App** in the Azure portal.
-
-2. **Navigate to Application Insights**:
-
-   - Select the **Application Insights** resource linked to your Function App.
-
-3. **Check Logs**:
-
-   - Go to **Logs** under the **Monitoring** section.
-
-   - Run queries to ensure your detailed logging is being captured.
-
-
-
-
-
-### Additional Tips
-
-
-
-
-
-- **Local Testing**: You can also run and test your Azure Functions locally using Azure Functions Core Tools. This allows you to see the effects of changes in the `host.json` file before deploying.
-
-    ```sh
-
-    func start
-
-    ```
-
-- **Documentation**: Refer to the [Azure Functions host.json reference](https://docs.microsoft.com/en-us/azure/azure-functions/functions-host-json) for more detailed information on available settings and configurations.
-
-
-
-
-
-By following these steps, you can edit the `host.json` file locally and deploy the changes to Azure, ensuring that your Azure Functions are configured correctly for detailed trace logging.
+Configuring logging for isolated Azure Functions involves setting up your `appsettings.json` for logging levels and Application Insights, modifying your `Program.cs` to configure logging services, and deploying your function app. If you prefer not to include the connection string in your configuration files, you can leverage environment variables to securely manage your Application Insights configuration. This setup allows you to effectively monitor and troubleshoot your functions using the Azure portal and Application Insights.
