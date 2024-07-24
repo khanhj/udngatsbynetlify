@@ -23,10 +23,15 @@ Below is a detailed breakdown of its core concepts and principles.
 #### Dependency Inversion
 
 - **Base Principle**: High-level modules should not depend on low-level modules. Both should depend on abstractions.
-  ![[Pasted image 20240724165056.png]]
-  ![[Pasted image 20240724165215.png]]
+
+  ![20240724165056](20240724165056.png)
+
+  ![20240724165215](20240724165215.png)
+
 - **Application in A.D.D**: Apply dependency inversion across different layers of the application.
-![[Pasted image 20240724170426.png]]
+
+  ![20240724170426](20240724170426.png)
+
 #### Abstraction Levels
 
 - **Abstract**: Interfaces and abstract components.
@@ -80,7 +85,7 @@ Below is a detailed breakdown of its core concepts and principles.
     - **Infrastructure Layer** can only see Domain Layer.
 - **No direct communication between concrete layers**: The concrete layers only send out events for other concrete layers to listen to.
 
-![[Pasted image 20240724172357.png]]
+  ![20240724172357](20240724172357.png)
 
 ### Placing Components in Layers
 
